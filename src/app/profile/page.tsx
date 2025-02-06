@@ -12,6 +12,9 @@ import { format } from "timeago.js";
 
 type Order = orders.Order;
 
+// Add noStore directive to prevent static generation
+export const dynamic = "force-dynamic";
+
 export default function ProfilePage() {
   const wixClient = useWixClient();
   const router = useRouter();
@@ -29,7 +32,11 @@ export default function ProfilePage() {
         }
 
         // Fetch profile data from API
-        const response = await fetch("/api/profile");
+        const response = await fetch("/api/profile", {
+          // Add cache: 'no-store' to prevent caching
+          cache: "no-store",
+        });
+
         if (!response.ok) {
           if (response.status === 401) {
             router.push("/login");
@@ -53,11 +60,19 @@ export default function ProfilePage() {
   }, [wixClient, router]);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
   if (!userData) {
-    return <div className="">Not logged in!</div>;
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+        Not logged in!
+      </div>
+    );
   }
 
   return (

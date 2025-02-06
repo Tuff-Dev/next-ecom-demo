@@ -1,9 +1,18 @@
 import { wixClientServer } from "@/lib/wixClientServer";
 import { members } from "@wix/members";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function GET() {
   try {
+    // Check if we have a refresh token
+    const cookieStore = cookies();
+    const refreshToken = cookieStore.get("refreshToken");
+
+    if (!refreshToken?.value) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
     const wixClient = await wixClientServer();
 
     const user = await wixClient.members.getCurrentMember({
@@ -29,7 +38,10 @@ export async function GET() {
     console.error("Profile API Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch profile data" },
-      { status: 500 }
+      { status: 401 }
     );
   }
 }
+
+// Add dynamic config to prevent static generation of this route
+export const dynamic = "force-dynamic";
