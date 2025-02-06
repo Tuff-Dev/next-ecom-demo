@@ -1,52 +1,95 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useWixClient } from "@/hooks/useWixClient";
+import { useRouter } from "next/navigation";
 import UpdateButton from "@/components/UpdateButton";
 import { updateUser } from "@/lib/actions";
-import { wixClientServer } from "@/lib/wixClientServer";
 import { members } from "@wix/members";
+import { orders } from "@wix/ecom";
 import Link from "next/link";
 import { format } from "timeago.js";
 
-const ProfilePage = async () => {
-  const wixClient = await wixClientServer();
+type Order = orders.Order;
 
-  const user = await wixClient.members.getCurrentMember({
-    fieldsets: [members.Set.FULL],
-  });
+export default function ProfilePage() {
+  const wixClient = useWixClient();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [userData, setUserData] = useState<members.Member | null>(null);
+  const [orderData, setOrderData] = useState<Order[]>([]);
 
-  if (!user.member?.contactId) {
-    return <div className="">Not logged in!</div>;
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const isLoggedIn = wixClient.auth.loggedIn();
+        if (!isLoggedIn) {
+          router.push("/login");
+          return;
+        }
+
+        // Fetch profile data from API
+        const response = await fetch("/api/profile");
+        if (!response.ok) {
+          if (response.status === 401) {
+            router.push("/login");
+            return;
+          }
+          throw new Error("Failed to fetch profile data");
+        }
+
+        const data = await response.json();
+        setUserData(data.user);
+        setOrderData(data.orders);
+      } catch (error) {
+        console.error("Profile Error:", error);
+        router.push("/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [wixClient, router]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
   }
 
-  const orderRes = await wixClient.orders.searchOrders({
-    search: {
-      filter: { "buyerInfo.contactId": { $eq: user.member?.contactId } },
-    },
-  });
+  if (!userData) {
+    return <div className="">Not logged in!</div>;
+  }
 
   return (
     <div className="flex flex-col md:flex-row gap-24 md:h-[calc(100vh-180px)] items-center px-4 md:px-8 lg:px-16 xl:px-32 2xl:px-64">
       <div className="w-full md:w-1/2">
         <h1 className="text-2xl">Profile</h1>
         <form action={updateUser} className="mt-12 flex flex-col gap-4">
-          <input type="text" hidden name="id" value={user.member.contactId} />
+          <input
+            type="text"
+            hidden
+            name="id"
+            value={userData.contactId || ""}
+          />
           <label className="text-sm text-gray-700">Username</label>
           <input
             type="text"
             name="username"
-            placeholder={user.member?.profile?.nickname || "john"}
+            placeholder={userData.profile?.nickname || "john"}
             className="ring-1 ring-gray-300 rounded-md p-2 max-w-96"
           />
           <label className="text-sm text-gray-700">First Name</label>
           <input
             type="text"
             name="firstName"
-            placeholder={user.member?.contact?.firstName || "John"}
+            placeholder={userData.contact?.firstName || "John"}
             className="ring-1 ring-gray-300 rounded-md p-2 max-w-96"
           />
           <label className="text-sm text-gray-700">Surname</label>
           <input
             type="text"
             name="lastName"
-            placeholder={user.member?.contact?.lastName || "Doe"}
+            placeholder={userData.contact?.lastName || "Doe"}
             className="ring-1 ring-gray-300 rounded-md p-2 max-w-96"
           />
           <label className="text-sm text-gray-700">Phone</label>
@@ -54,8 +97,7 @@ const ProfilePage = async () => {
             type="text"
             name="phone"
             placeholder={
-              (user.member?.contact?.phones &&
-                user.member?.contact?.phones[0]) ||
+              (userData.contact?.phones && userData.contact?.phones[0]) ||
               "+1234567"
             }
             className="ring-1 ring-gray-300 rounded-md p-2 max-w-96"
@@ -64,7 +106,7 @@ const ProfilePage = async () => {
           <input
             type="email"
             name="email"
-            placeholder={user.member?.loginEmail || "john@gmail.com"}
+            placeholder={userData.loginEmail || "john@gmail.com"}
             className="ring-1 ring-gray-300 rounded-md p-2 max-w-96"
           />
           <UpdateButton />
@@ -73,7 +115,7 @@ const ProfilePage = async () => {
       <div className="w-full md:w-1/2">
         <h1 className="text-2xl">Orders</h1>
         <div className="mt-12 flex flex-col">
-          {orderRes.orders.map((order) => (
+          {orderData.map((order) => (
             <Link
               href={`/orders/${order._id}`}
               key={order._id}
@@ -93,6 +135,4 @@ const ProfilePage = async () => {
       </div>
     </div>
   );
-};
-
-export default ProfilePage;
+}
