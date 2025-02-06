@@ -12,7 +12,7 @@ import { format } from "timeago.js";
 
 type Order = orders.Order;
 
-// Add noStore directive to prevent static generation
+// Prevent static generation
 export const dynamic = "force-dynamic";
 
 export default function ProfilePage() {
@@ -33,8 +33,10 @@ export default function ProfilePage() {
 
         // Fetch profile data from API
         const response = await fetch("/api/profile", {
-          // Add cache: 'no-store' to prevent caching
           cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
         });
 
         if (!response.ok) {
@@ -46,8 +48,12 @@ export default function ProfilePage() {
         }
 
         const data = await response.json();
-        setUserData(data.user);
-        setOrderData(data.orders);
+        if (data.user) {
+          setUserData(data.user);
+          setOrderData(data.orders);
+        } else {
+          router.push("/login");
+        }
       } catch (error) {
         console.error("Profile Error:", error);
         router.push("/login");

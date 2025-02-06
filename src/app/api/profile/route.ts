@@ -1,15 +1,24 @@
 import { wixClientServer } from "@/lib/wixClientServer";
 import { members } from "@wix/members";
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+// Prevent static generation
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest) {
+  // During build time, return empty response
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return NextResponse.json({
+      user: null,
+      orders: [],
+    });
+  }
+
   try {
-    // Check if we have a refresh token
-    const cookieStore = cookies();
-    const refreshToken = cookieStore.get("refreshToken");
+    // Get the authorization cookie from the request headers
+    const authCookie = request.cookies.get("refreshToken");
 
-    if (!refreshToken?.value) {
+    if (!authCookie?.value) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
@@ -42,6 +51,3 @@ export async function GET() {
     );
   }
 }
-
-// Add dynamic config to prevent static generation of this route
-export const dynamic = "force-dynamic";
